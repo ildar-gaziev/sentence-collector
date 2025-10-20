@@ -7,12 +7,20 @@ const storage =
   (chrome.storage && chrome.storage.local) ||
   null
 
+const getSentence = () => out.textContent || ''
+const setSentence = text => {
+  out.textContent = text || ''
+}
+
+const persistSentence = text =>
+  storage?.set?.({ lastSentence: text ?? '' }).catch(() => {})
+
 // 1) Пробуем прочитать из storage
 ;(async () => {
   try {
     if (storage) {
       const data = await storage.get({ lastSentence: '' })
-      if (data.lastSentence && !out.value) out.value = data.lastSentence
+      if (data.lastSentence && !getSentence()) setSentence(data.lastSentence)
     }
   } catch (e) {
     console.warn('storage.get failed:', e)
@@ -25,9 +33,9 @@ const storage =
     const resp = await chrome.runtime.sendMessage({
       type: 'REQUEST_LAST_SENTENCE'
     })
-    if (resp?.lastSentence && !out.value) {
-      out.value = resp.lastSentence
-      storage?.set?.({ lastSentence: resp.lastSentence }).catch(() => {})
+    if (resp?.lastSentence && !getSentence()) {
+      setSentence(resp.lastSentence)
+      persistSentence(resp.lastSentence)
     }
   } catch (e) {
     // если фон недоступен — не критично
@@ -37,11 +45,22 @@ const storage =
 // 3) Живые сообщения (если фон отправит после открытия панели)
 chrome.runtime.onMessage.addListener(msg => {
   if (msg?.type === 'SIDE_PANEL_TEXT') {
-    out.value = msg.payload || ''
-    storage?.set?.({ lastSentence: out.value }).catch(() => {})
+    setSentence(msg.payload || '')
+    persistSentence(getSentence())
   }
 })
 
-chrome.runtime.onMessage.addListener(m => console.log('SIDE_PANEL_TEXT:', m))
+copyBtn?.addEventListener('click', async () => {
+  const text = getSentence()
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch (e) {
+    console.warn('clipboard write failed:', e)
+  }
+})
 
-
+clearBtn?.addEventListener('click', () => {
+  setSentence('')
+  persistSentence('')
+})
