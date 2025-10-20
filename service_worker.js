@@ -240,21 +240,32 @@ async function highlightSentenceInFrames (tabId, hintedFrameId) {
   // 1) пробуем отправить команду контент-скрипту в «подсказанный» фрейм
   const trySend = frameId =>
     new Promise(resolve => {
+      let settled = false
+      const finish = value => {
+        if (!settled) {
+          settled = true
+          resolve(value)
+        }
+      }
       chrome.tabs.sendMessage(
         tabId,
         { type: 'HIGHLIGHT_SENTENCE' },
         { frameId },
         resp => {
+          if (chrome.runtime.lastError) {
+            // Receiving end does not exist — нормально, пробуем дальше
+            console.debug(
+              'highlightSentenceInFrames sendMessage error:',
+              chrome.runtime.lastError.message
+            )
+            finish(false)
+            return
+          }
           // Receiving end does not exist — нормально, пробуем дальше
-          if (resp?.ok) resolve(true)
-          else resolve(false)
+          finish(Boolean(resp?.ok))
         }
       )
-      if (chrome.runtime.lastError) {
-        void chrome.runtime.lastError
-        // Receiving end does not exist — нормально, пробуем дальше
-      }
-      setTimeout(() => resolve(false), 300)
+      setTimeout(() => finish(false), 300)
     })
 
   // 2) соберём список фреймов (подсказанный — первым)

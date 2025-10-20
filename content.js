@@ -290,7 +290,9 @@
     }
     if (msg?.type === 'SIDE_PANEL_TEXT') {
       // Проксируем в side panel (если она работает в том же процессе)
-      chrome.runtime.sendMessage(msg)
+      chrome.runtime.sendMessage(msg, () => {
+        void chrome.runtime.lastError
+      })
     }
     if (msg?.type === 'HIGHLIGHT_SENTENCE') {
       try {
