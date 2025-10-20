@@ -8,7 +8,8 @@
         "activeTab",
         "sidePanel",
         "storage",
-        "webNavigation"
+        "webNavigation",
+        "tts"
     ],
     "host_permissions": [
         "<all_urls>"
