@@ -1,46 +1,55 @@
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Sentence → Side Panel</title>
-    <style>
-      body {
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        margin: 0;
-        padding: 12px;
-      }
-      textarea {
-        width: 100%;
-        height: 220px;
-        resize: vertical;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 10px;
-        font-size: 14px;
-        line-height: 1.4;
-      }
-      .top {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-      button {
-        border-radius: 8px;
-        border: 1px solid #ddd;
-        padding: 8px 10px;
-        background: #fff;
-        cursor: pointer;
-      }
-      button:hover { background: #f7f7f7; }
-    </style>
-  </head>
-  <body>
-    <div class="top">
-      <strong>Выбранное предложение</strong>
-      <button id="copy">Копировать</button>
-      <button id="clear">Очистить</button>
-    </div>
-    <textarea id="out" placeholder="Здесь появится текст предложения..."></textarea>
-    <script src="sidepanel.js"></script>
-  </body>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Sentence → Side Panel</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0;
+      padding: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 200px;
+      resize: vertical;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .top {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    button {
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      padding: 8px 10px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #f7f7f7;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="top">
+    <strong>Выбранное предложение</strong>
+    <button id="copy">Копировать</button>
+    <button id="clear">Очистить</button>
+  </div>
+  <textarea id="out" placeholder="Здесь появится текст предложения..."></textarea>
+  <script src="sidepanel.js"></script>
+</body>
+
 </html>
