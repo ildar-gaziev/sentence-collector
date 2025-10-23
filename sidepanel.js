@@ -6,40 +6,107 @@ const pauseBtn = document.getElementById('tts-pause')
 const stopBtn = document.getElementById('tts-stop')
 const voiceSelect = document.getElementById('tts-voice')
 const speedSelect = document.getElementById('tts-speed')
+const ttsControls = document.getElementById('tts-controls')
+const languageInfo = document.getElementById('language-info')
+const languageNameEl = document.getElementById('language-name')
 
 const storage =
   (chrome.storage && chrome.storage.session) ||
   (chrome.storage && chrome.storage.local) ||
   null
 
+const supportsTts = Boolean(chrome?.tts)
+let ttsAvailable = false
 let preferredVoice = ''
 let preferredRate = '1'
 let speechSequence = 0
 let ttsState = 'idle'
 
+const languageDetectorApi = (() => {
+  if (chrome?.ai?.languageDetector?.create) return chrome.ai.languageDetector
+  if (globalThis?.ai?.languageDetector?.create) return globalThis.ai.languageDetector
+  if (globalThis?.LanguageDetector?.create) return globalThis.LanguageDetector
+  return null
+})()
+
+const supportsLanguageDetection = Boolean(languageDetectorApi?.create)
+let detectionSupported = supportsLanguageDetection
+let languageDetectorPromise = null
+let detectedLanguageCode = ''
+let detectionSequence = 0
+let detectedLanguageProbability = null
+
+const languageDisplayNames =
+  typeof Intl?.DisplayNames === 'function'
+    ? new Intl.DisplayNames([navigator.language || 'en'], { type: 'language' })
+    : null
+
+let allVoices = []
+
 const getSentence = () => out?.textContent || ''
 
-const supportsTts = Boolean(chrome?.tts)
-let ttsAvailable = supportsTts
+function renderLanguageStatus ({ status, code, probability, note } = {}) {
+  if (!languageNameEl || !languageInfo) return
+  languageInfo.classList.remove('hidden')
 
-function setTtsAvailability (enabled) {
-  ttsAvailable = Boolean(enabled)
-  if (!ttsAvailable) {
-    playBtn?.setAttribute('disabled', 'disabled')
-    pauseBtn?.setAttribute('disabled', 'disabled')
-    stopBtn?.setAttribute('disabled', 'disabled')
-    voiceSelect?.setAttribute('disabled', 'disabled')
-    speedSelect?.setAttribute('disabled', 'disabled')
-  } else {
-    playBtn?.removeAttribute('disabled')
-    pauseBtn?.removeAttribute('disabled')
-    stopBtn?.removeAttribute('disabled')
-    voiceSelect?.removeAttribute('disabled')
-    speedSelect?.removeAttribute('disabled')
+  switch (status) {
+    case 'detecting':
+      languageNameEl.textContent = 'Detecting…'
+      break
+    case 'unavailable':
+      languageNameEl.textContent = 'Detection unavailable'
+      break
+    case 'unknown':
+      languageNameEl.textContent = 'Unknown'
+      break
+    case 'language': {
+      const normalized = (code || '').toLowerCase()
+      let label = normalized || 'Unknown'
+      try {
+        label = languageDisplayNames?.of
+          ? languageDisplayNames.of(normalized) || normalized
+          : normalized
+      } catch {
+        label = normalized || 'Unknown'
+      }
+      const confidence =
+        typeof probability === 'number'
+          ? ` (${Math.round(probability * 100)}%)`
+          : ''
+      const suffix = note ? ` — ${note}` : ''
+      languageNameEl.textContent = `${label}${confidence}${suffix}`
+      break
+    }
+    default:
+      languageNameEl.textContent = '—'
   }
 }
 
-if (!supportsTts) setTtsAvailability(false)
+renderLanguageStatus({
+  status: supportsLanguageDetection ? 'unknown' : 'unavailable'
+})
+
+function setTtsAvailability (enabled) {
+  const next = Boolean(enabled && supportsTts)
+  if (ttsControls) ttsControls.classList.toggle('hidden', !next)
+
+  const controls = [playBtn, pauseBtn, stopBtn, voiceSelect, speedSelect]
+  for (const el of controls) {
+    if (!el) continue
+    el.disabled = !next
+  }
+
+  if (next === ttsAvailable) {
+    updateTtsUI()
+    return
+  }
+
+  if (ttsAvailable && !next) stopSpeech()
+  ttsAvailable = next
+  updateTtsUI()
+}
+
+setTtsAvailability(false)
 
 function updateTtsUI () {
   if (!ttsAvailable) return
@@ -63,10 +130,13 @@ function stopSpeech (sendCommand = true) {
   updateTtsUI()
 }
 
-function setSentence (text, { stop = true } = {}) {
-  out.textContent = text || ''
+function setSentence (text, { stop = true, detect = true } = {}) {
+  const normalized = text || ''
+  out.textContent = normalized
   if (stop) stopSpeech()
   else updateTtsUI()
+
+  if (detect) queueLanguageDetection(normalized)
 }
 
 const persistSentence = text =>
@@ -93,10 +163,8 @@ function speakSentence () {
     if (token !== speechSequence) return
     if (event.type === 'start' || event.type === 'resume') {
       ttsState = 'speaking'
-      updateTtsUI()
     } else if (event.type === 'pause') {
       ttsState = 'paused'
-      updateTtsUI()
     } else if (
       event.type === 'end' ||
       event.type === 'interrupted' ||
@@ -104,8 +172,8 @@ function speakSentence () {
       event.type === 'error'
     ) {
       ttsState = 'idle'
-      updateTtsUI()
     }
+    updateTtsUI()
   }
 
   ttsState = 'pending'
@@ -153,8 +221,93 @@ function resumeSpeechOrReplay () {
   speakSentence()
 }
 
+function updateVoiceSelect (voices) {
+  if (!voiceSelect) return
+
+  voiceSelect.innerHTML = ''
+  if (!voices.length) return
+
+  const defaultOption = document.createElement('option')
+  defaultOption.value = ''
+  defaultOption.textContent = 'Default'
+  voiceSelect.appendChild(defaultOption)
+
+  let matched = false
+  let firstVoiceName = ''
+  for (const voice of voices) {
+    if (!voice.voiceName) continue
+    const option = document.createElement('option')
+    option.value = voice.voiceName
+    option.textContent = voice.lang
+      ? `${voice.voiceName} (${voice.lang})`
+      : voice.voiceName
+    if (!matched && voice.voiceName === preferredVoice) {
+      option.selected = true
+      matched = true
+    }
+    voiceSelect.appendChild(option)
+    if (!firstVoiceName) firstVoiceName = voice.voiceName
+  }
+
+  if (!matched && firstVoiceName) {
+    voiceSelect.value = firstVoiceName
+    preferredVoice = firstVoiceName
+  } else if (!matched) {
+    voiceSelect.value = ''
+    preferredVoice = ''
+  }
+}
+
+function languageMatchesVoice (languageCode, voice) {
+  const voiceLang = (voice.lang || '').toLowerCase()
+  if (!voiceLang) return false
+  const normalized = languageCode.toLowerCase()
+  return (
+    voiceLang === normalized ||
+    voiceLang.startsWith(`${normalized}-`) ||
+    voiceLang.split('-')[0] === normalized
+  )
+}
+
+function applyVoiceFilter () {
+  if (!supportsTts) {
+    setTtsAvailability(false)
+    return 0
+  }
+
+  let voices = []
+  if (!detectionSupported) {
+    voices = allVoices.slice()
+  } else if (detectedLanguageCode) {
+    voices = allVoices.filter(voice =>
+      languageMatchesVoice(detectedLanguageCode, voice)
+    )
+  } else {
+    voices = []
+  }
+
+  updateVoiceSelect(voices)
+  setTtsAvailability(voices.length > 0)
+
+  if (detectionSupported && detectedLanguageCode) {
+    const note =
+      voices.length === 0 ? 'no voice available for this language' : undefined
+    renderLanguageStatus({
+      status: 'language',
+      code: detectedLanguageCode,
+      probability: detectedLanguageProbability,
+      note
+    })
+  }
+
+  return voices.length
+}
+
 function populateVoices () {
-  if (!ttsAvailable || !voiceSelect) return
+  if (!supportsTts) {
+    setTtsAvailability(false)
+    return
+  }
   chrome.tts.getVoices(voices => {
     const err = chrome.runtime?.lastError
     if (err) {
@@ -162,30 +315,108 @@ function populateVoices () {
       setTtsAvailability(false)
       return
     }
-    const list = (voices || []).slice()
-    list.sort((a, b) => a.voiceName.localeCompare(b.voiceName))
-
-    voiceSelect.innerHTML = ''
-    const defaultOption = document.createElement('option')
-    defaultOption.value = ''
-    defaultOption.textContent = 'Default'
-    voiceSelect.appendChild(defaultOption)
-
-    let matched = false
-    for (const voice of list) {
-      const option = document.createElement('option')
-      option.value = voice.voiceName
-      option.textContent = voice.lang
-        ? `${voice.voiceName} (${voice.lang})`
-        : voice.voiceName
-      if (!matched && voice.voiceName === preferredVoice) {
-        option.selected = true
-        matched = true
-      }
-      voiceSelect.appendChild(option)
-    }
-    if (!matched) voiceSelect.value = ''
+    allVoices = (voices || []).slice().sort((a, b) =>
+      a.voiceName.localeCompare(b.voiceName)
+    )
+    applyVoiceFilter()
   })
+}
+
+async function getLanguageDetector () {
+  if (!detectionSupported) return null
+  if (!languageDetectorPromise) {
+    languageDetectorPromise = languageDetectorApi
+      .create()
+      .catch(err => {
+        console.warn('language detector init failed:', err)
+        detectionSupported = false
+        detectedLanguageCode = ''
+        detectedLanguageProbability = null
+        languageDetectorPromise = null
+        renderLanguageStatus({ status: 'unavailable' })
+        applyVoiceFilter()
+        return null
+      })
+  }
+  return languageDetectorPromise
+}
+
+async function queueLanguageDetection (rawText) {
+  const text = (rawText || '').trim()
+
+  if (!detectionSupported) {
+    detectedLanguageCode = ''
+    detectedLanguageProbability = null
+    renderLanguageStatus({ status: 'unavailable' })
+    applyVoiceFilter()
+    return
+  }
+
+  if (!text) {
+    detectedLanguageCode = ''
+    detectedLanguageProbability = null
+    renderLanguageStatus({ status: 'unknown' })
+    applyVoiceFilter()
+    return
+  }
+
+  const detector = await getLanguageDetector()
+  if (!detector) {
+    renderLanguageStatus({ status: 'unavailable' })
+    applyVoiceFilter()
+    return
+  }
+
+  const token = ++detectionSequence
+  renderLanguageStatus({ status: 'detecting' })
+
+  try {
+    const result = await detector.detect(text)
+    if (token !== detectionSequence) return
+
+    let languageCode = ''
+    let probability = null
+
+    if (Array.isArray(result)) {
+      const [top] = result
+      languageCode =
+        top?.languageCode ||
+        top?.detectedLanguage ||
+        top?.language ||
+        ''
+      probability =
+        typeof top?.probability === 'number'
+          ? top.probability
+          : typeof top?.confidence === 'number'
+          ? top.confidence
+          : null
+    } else if (result?.languages?.length) {
+      const [top] = result.languages
+      languageCode = top?.languageCode || ''
+      probability =
+        typeof top?.probability === 'number' ? top.probability : null
+    }
+
+    if (!languageCode) {
+      detectedLanguageCode = ''
+      detectedLanguageProbability = null
+      renderLanguageStatus({ status: 'unknown' })
+      applyVoiceFilter()
+      return
+    }
+
+    detectedLanguageCode = languageCode.toLowerCase()
+    detectedLanguageProbability =
+      typeof probability === 'number' ? probability : null
+    applyVoiceFilter()
+  } catch (e) {
+    if (token !== detectionSequence) return
+    console.warn('language detection failed:', e)
+    detectedLanguageCode = ''
+    detectedLanguageProbability = null
+    renderLanguageStatus({ status: 'unknown' })
+    applyVoiceFilter()
+  }
 }
 
 copyBtn?.addEventListener('click', async () => {
@@ -225,7 +456,7 @@ speedSelect?.addEventListener('change', () => {
   persistRate(preferredRate)
 })
 
-// 1) Пробуем прочитать из storage
+// 1) Restore last known values from storage
 ;(async () => {
   try {
     if (storage) {
@@ -234,52 +465,52 @@ speedSelect?.addEventListener('change', () => {
         lastVoice: '',
         lastRate: '1'
       })
-
-      if (typeof data.lastVoice === 'string') {
-        preferredVoice = data.lastVoice
-      }
-      if (typeof data.lastRate === 'string' || typeof data.lastRate === 'number') {
+      if (typeof data.lastVoice === 'string') preferredVoice = data.lastVoice
+      if (typeof data.lastRate === 'string' || typeof data.lastRate === 'number')
         preferredRate = String(data.lastRate)
-      }
       if (speedSelect) {
         speedSelect.value = preferredRate
         if (speedSelect.value !== preferredRate) {
           speedSelect.value = '1'
-          preferredRate = speedSelect.value
+          preferredRate = '1'
         }
       }
-      if (data.lastSentence && !getSentence()) {
+      if (data.lastSentence) {
         setSentence(data.lastSentence, { stop: false })
       } else {
-        updateTtsUI()
+        queueLanguageDetection('')
       }
+    } else {
+      queueLanguageDetection(getSentence())
     }
   } catch (e) {
     console.warn('storage.get failed:', e)
+    queueLanguageDetection(getSentence())
   }
-  if (ttsAvailable) populateVoices()
+
+  if (supportsTts) populateVoices()
 })()
 
-if (ttsAvailable && chrome.tts.onVoicesChanged) {
+if (supportsTts && chrome.tts.onVoicesChanged) {
   chrome.tts.onVoicesChanged.addListener(populateVoices)
 }
 
-// 2) Запрашиваем у background (на случай, если сообщение пришло до инициализации)
+// 2) Request the last sentence from background
 ;(async () => {
   try {
     const resp = await chrome.runtime.sendMessage({
       type: 'REQUEST_LAST_SENTENCE'
     })
-    if (resp?.lastSentence && !getSentence()) {
+    if (resp?.lastSentence && resp.lastSentence !== getSentence()) {
       setSentence(resp.lastSentence)
       persistSentence(resp.lastSentence)
     }
   } catch (e) {
-    // если фон недоступен — не критично
+    // background might be unavailable — not critical
   }
 })()
 
-// 3) Живые сообщения (если фон отправит после открытия панели)
+// 3) Live updates from background/service worker
 chrome.runtime.onMessage.addListener(msg => {
   if (msg?.type === 'SIDE_PANEL_TEXT') {
     setSentence(msg.payload || '')

@@ -3,84 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>Sentence → Side Panel</title>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      margin: 0;
-      padding: 12px;
-    }
-
-    .top {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    button {
-      border-radius: 8px;
-      border: 1px solid #ddd;
-      padding: 8px 10px;
-      background: #fff;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #f7f7f7;
-    }
-
-    .sentence {
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 12px;
-      min-height: 48px;
-      font-size: 14px;
-      line-height: 1.5;
-      background: #fff;
-      white-space: pre-wrap;
-    }
-
-    .tts-controls {
-      margin-top: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .tts-buttons {
-      display: flex;
-      gap: 6px;
-    }
-
-    .tts-buttons button {
-      width: 48px;
-    }
-
-    .tts-selectors {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .tts-selectors label {
-      display: flex;
-      flex-direction: column;
-      font-size: 12px;
-      gap: 4px;
-    }
-
-    .tts-selectors select {
-      border-radius: 6px;
-      border: 1px solid #ddd;
-      padding: 6px;
-      min-width: 140px;
-    }
-
-    select {
-      font-size: 12px;
-      width: 90%;
-    }
-  </style>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
@@ -90,7 +13,10 @@
     <button id="clear">Clear</button>
   </div>
   <p id="out" class="sentence"></p>
-  <div class="tts-controls">
+  <div id="language-info" class="language-info">
+    Language: <span id="language-name">—</span>
+  </div>
+  <div id="tts-controls" class="tts-controls hidden">
     <div class="tts-buttons">
       <button id="tts-play" title="Play">▶︎</button>
       <button id="tts-pause" title="Pause">⏸</button>

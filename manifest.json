@@ -1,27 +1,27 @@
 {
-    "manifest_version": 3,
-    "name": "Sentence → Side Panel",
-    "version": "1.0.1",
-    "permissions": [
-        "contextMenus",
-        "scripting",
-        "activeTab",
-        "sidePanel",
-        "storage",
-        "webNavigation",
-        "tts"
-    ],
-    "host_permissions": [
-        "<all_urls>"
-    ],
-    "background": {
-        "service_worker": "service_worker.js",
-        "type": "module"
-    },
-    "side_panel": {
-        "default_path": "sidepanel.html"
-    },
-    "action": {
-        "default_title": "Sentence → Side Panel"
-    }
+  "manifest_version": 3,
+  "name": "Sentence → Side Panel",
+  "version": "1.0.1",
+  "permissions": [
+    "contextMenus",
+    "scripting",
+    "activeTab",
+    "sidePanel",
+    "storage",
+    "webNavigation",
+    "tts"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "service_worker.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "Sentence → Side Panel"
+  }
 }
