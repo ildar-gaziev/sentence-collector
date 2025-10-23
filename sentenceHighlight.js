@@ -1,5 +1,4 @@
 export async function highlightSentenceInFrames (tabId, hintedFrameId) {
-  // 1) пробуем отправить команду контент-скрипту в «подсказанный» фрейм
   const trySend = frameId =>
     new Promise(resolve => {
       let settled = false
@@ -15,7 +14,6 @@ export async function highlightSentenceInFrames (tabId, hintedFrameId) {
         { frameId },
         resp => {
           if (chrome.runtime.lastError) {
-            // Receiving end does not exist — нормально, пробуем дальше
             console.debug(
               'highlightSentenceInFrames sendMessage error:',
               chrome.runtime.lastError.message
@@ -23,14 +21,13 @@ export async function highlightSentenceInFrames (tabId, hintedFrameId) {
             finish(false)
             return
           }
-          // Receiving end does not exist — нормально, пробуем дальше
+
           finish(Boolean(resp?.ok))
         }
       )
       setTimeout(() => finish(false), 300)
     })
 
-  // 2) соберём список фреймов (подсказанный — первым)
   let frames = []
   try {
     frames = await chrome.webNavigation.getAllFrames({ tabId })
@@ -44,12 +41,10 @@ export async function highlightSentenceInFrames (tabId, hintedFrameId) {
     ...frames.filter(f => f.frameId !== hintedFrameId)
   ]
 
-  // 3) пробуем по очереди через message
   for (const f of ordered) {
     if (await trySend(f.frameId)) return true
   }
 
-  // 4) fallback: инлайновая подсветка через executeScript
   for (const f of ordered) {
     try {
       await chrome.scripting.executeScript({
@@ -58,13 +53,12 @@ export async function highlightSentenceInFrames (tabId, hintedFrameId) {
       })
       return true
     } catch {
-      // может быть закрыто CSP — пробуем следующий
+      /* ignore */
     }
   }
   return false
 }
 
-// будет исполнена внутри страницы, создаёт краткую подсветку того же предложения
 export function inlineHighlightCurrentSentence () {
   const sel = window.getSelection()
   if (!sel || sel.rangeCount === 0) return
@@ -180,7 +174,7 @@ export function inlineHighlightCurrentSentence () {
   const mark = document.createElement('span')
   mark.style.background = 'rgba(255,230,150,0.8)'
   mark.style.transition = 'background 3000ms ease'
-  mark.className = 'sentence-highlight-marker' // на случай кастомизации
+  mark.className = 'sentence-highlight-marker' // for casting out if needed
   r.surroundContents(mark)
   setTimeout(() => (mark.style.background = 'transparent'), 50)
   setTimeout(() => {

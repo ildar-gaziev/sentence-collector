@@ -15,7 +15,7 @@ const setSentence = text => {
 const persistSentence = text =>
   storage?.set?.({ lastSentence: text ?? '' }).catch(() => {})
 
-// 1) Пробуем прочитать из storage
+// tyr to read from storage
 ;(async () => {
   try {
     if (storage) {
@@ -26,8 +26,6 @@ const persistSentence = text =>
     console.warn('storage.get failed:', e)
   }
 })()
-
-// 2) Запрашиваем у background (на случай, если сообщение пришло до инициализации)
 ;(async () => {
   try {
     const resp = await chrome.runtime.sendMessage({
@@ -38,11 +36,10 @@ const persistSentence = text =>
       persistSentence(resp.lastSentence)
     }
   } catch (e) {
-    // если фон недоступен — не критично
+    /* ignore */
   }
 })()
 
-// 3) Живые сообщения (если фон отправит после открытия панели)
 chrome.runtime.onMessage.addListener(msg => {
   if (msg?.type === 'SIDE_PANEL_TEXT') {
     setSentence(msg.payload || '')

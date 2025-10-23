@@ -10,13 +10,11 @@ export async function getSentenceFromAnyFrame (tabId, hintedFrameId) {
     ]
   }
 
-  // ставим подсказанный frameId первым в очереди
   const ordered = [
     ...frames.filter(f => f.frameId === hintedFrameId),
     ...frames.filter(f => f.frameId !== hintedFrameId)
   ]
 
-  // 2) пробуем отправить сообщение в каждый фрейм — берём первый валидный ответ
   for (const f of ordered) {
     const sentence = await new Promise(resolve => {
       let done = false
@@ -47,7 +45,6 @@ export async function getSentenceFromAnyFrame (tabId, hintedFrameId) {
     if (sentence) return sentence
   }
 
-  // 3) fallback: исполняем функцию прямо в фреймах (без собственного контент-скрипта)
   for (const f of ordered) {
     try {
       const [{ result } = {}] = await chrome.scripting.executeScript({
@@ -55,18 +52,13 @@ export async function getSentenceFromAnyFrame (tabId, hintedFrameId) {
         func: inlineExtractSentence
       })
       if ((result || '').trim()) return result.trim()
-    } catch (e) {
-      // некоторые фреймы могут быть закрыты политиками/СSP — это ожидаемо
-    }
+    } catch (e) {}
   }
 
   return ''
 }
 
-// Внимание: эта функция будет исполнена в изолированном мире целевого фрейма
 export function inlineExtractSentence () {
-  // пытаемся использовать текущее выделение, если пусто — позицию последнего клика восстановить нельзя,
-  // поэтому берём каретку из selection (если она есть)
   const sel = window.getSelection()
   if (!sel || sel.rangeCount === 0) return ''
 
@@ -101,7 +93,6 @@ export function inlineExtractSentence () {
   const nr = normalize(range)
   if (!nr) return ''
 
-  // собираем текст всего блочного контейнера
   function getBlock (elOrNode) {
     let el =
       elOrNode.nodeType === Node.ELEMENT_NODE
