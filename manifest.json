@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Sentence → Side Panel",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "permissions": [
     "contextMenus",
     "scripting",
     "activeTab",
     "sidePanel",
     "storage",
-    "webNavigation"
+    "webNavigation",
+    "tts"
   ],
   "host_permissions": [
     "<all_urls>"

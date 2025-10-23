@@ -12,7 +12,7 @@ let lastSentence = ''
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: 'copy-sentence-to-sidepanel',
-    title: 'Скопировать предложение в боковую панель',
+    title: 'Copy sentence to my collection',
     contexts: ['selection', 'page']
   })
 })

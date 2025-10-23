@@ -29,17 +29,10 @@
       background: #f7f7f7;
     }
 
-    .sentence {
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 12px;
-      min-height: 48px;
-      font-size: 14px;
-      line-height: 1.5;
-      background: #fff;
-      white-space: pre-wrap;
-    }
-  </style>
+<head>
+  <meta charset="utf-8" />
+  <title>Sentence → Side Panel</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
@@ -49,6 +42,35 @@
     <button id="clear">Clear</button>
   </div>
   <p id="out" class="sentence"></p>
+  <div id="language-info" class="language-info">
+    Language: <span id="language-name">—</span>
+  </div>
+  <div id="tts-controls" class="tts-controls hidden">
+    <div class="tts-buttons">
+      <button id="tts-play" title="Play">▶︎</button>
+      <button id="tts-pause" title="Pause">⏸</button>
+      <button id="tts-stop" title="Stop">⏹</button>
+    </div>
+    <div class="tts-selectors">
+      <label>
+        Voice
+        <select id="tts-voice">
+          <option value="">Default</option>
+        </select>
+      </label>
+      <label>
+        Speed
+        <select id="tts-speed">
+          <option value="0.75">0.75x</option>
+          <option value="0.9">0.9x</option>
+          <option value="1" selected>1x</option>
+          <option value="1.25">1.25x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+        </select>
+      </label>
+    </div>
+  </div>
   <script src="sidepanel.js"></script>
 </body>
 
