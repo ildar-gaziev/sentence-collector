@@ -20,15 +20,12 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== 'copy-sentence-to-sidepanel' || !tab?.id) return
 
-  // 1) СРАЗУ открыть боковую панель — без await!
   chrome.sidePanel
     .setOptions({ tabId: tab.id, path: 'sidepanel.html', enabled: true })
     .then(() => chrome.sidePanel.open({ tabId: tab.id }))
     .catch(e => console.warn('sidePanel API error:', e))
-
-  // 2) Остальное — асинхронно, уже без требования user gesture
   ;(async () => {
-    // не трогаем системные страницы
+    // check for system pages where extension cannot operate
     const url = tab.url || ''
     if (
       /^(chrome|edge|about|view-source):/i.test(url) ||
@@ -38,11 +35,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       return
     }
 
-    // получаем предложение из любого фрейма (ваша реализация)
     const text = (await getSentenceFromAnyFrame(tab.id, info.frameId)).trim()
     if (!text) return
 
-    // кэшируем и отправляем в панель
     try {
       await (chrome.storage.session ?? chrome.storage.local)?.set?.({
         lastSentence: text
